@@ -18,6 +18,8 @@ class _AddEditHabitScreenState extends State<AddEditHabitScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
   late HabitFrequency _frequency;
+  bool _reminderEnabled = false;
+  TimeOfDay? _reminderTime;
 
   bool get _isEditMode => widget.habit != null;
 
@@ -29,6 +31,8 @@ class _AddEditHabitScreenState extends State<AddEditHabitScreen> {
       text: widget.habit?.description ?? '',
     );
     _frequency = widget.habit?.frequency ?? HabitFrequency.daily;
+    _reminderEnabled = widget.habit?.reminderEnabled ?? false;
+    _reminderTime = widget.habit?.reminderTimeOfDay;
   }
 
   @override
@@ -48,11 +52,17 @@ class _AddEditHabitScreenState extends State<AddEditHabitScreen> {
     final name = _nameController.text.trim();
     final description = _descriptionController.text.trim();
 
+    final reminderTimeString = _reminderTime != null
+        ? '${_reminderTime!.hour.toString().padLeft(2, '0')}:${_reminderTime!.minute.toString().padLeft(2, '0')}'
+        : null;
+
     if (_isEditMode) {
       final updated = widget.habit!.copyWith(
         name: name,
         description: description,
         frequency: _frequency,
+        reminderEnabled: _reminderEnabled,
+        reminderTime: reminderTimeString,
       );
       await provider.updateHabit(updated);
     } else {
@@ -60,6 +70,8 @@ class _AddEditHabitScreenState extends State<AddEditHabitScreen> {
         name: name,
         description: description,
         frequency: _frequency,
+        reminderEnabled: _reminderEnabled,
+        reminderTime: reminderTimeString,
       );
     }
 
@@ -71,10 +83,11 @@ class _AddEditHabitScreenState extends State<AddEditHabitScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_isEditMode ? 'Edit Habit' : 'Create Habit'),
-      ),
+      appBar: AppBar(title: Text(_isEditMode ? 'Edit Habit' : 'Create Habit')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         child: Form(
@@ -95,9 +108,9 @@ class _AddEditHabitScreenState extends State<AddEditHabitScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: theme.colorScheme.surface,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFFDEE5DF)),
+                  border: Border.all(color: theme.dividerColor),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -142,7 +155,9 @@ class _AddEditHabitScreenState extends State<AddEditHabitScreen> {
                     const SizedBox(height: 10),
                     Wrap(
                       spacing: 10,
-                      children: HabitFrequency.values.map((HabitFrequency value) {
+                      children: HabitFrequency.values.map((
+                        HabitFrequency value,
+                      ) {
                         final isSelected = _frequency == value;
                         return ChoiceChip(
                           label: Text(value.label),
@@ -153,18 +168,72 @@ class _AddEditHabitScreenState extends State<AddEditHabitScreen> {
                             });
                           },
                           selectedColor: const Color(0xFF1E5B4F),
-                          labelStyle: Theme.of(context)
-                              .textTheme
-                              .labelLarge
+                          labelStyle: Theme.of(context).textTheme.labelLarge
                               ?.copyWith(
                                 color: isSelected
                                     ? Colors.white
-                                    : const Color(0xFF2B3C36),
+                                    : (isDark
+                                        ? const Color(0xFFD5E3DB)
+                                        : const Color(0xFF2B3C36)),
                                 fontWeight: FontWeight.w700,
                               ),
                         );
                       }).toList(),
                     ),
+                    const SizedBox(height: 16),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Reminder'),
+                      subtitle: const Text('Receive daily/weekly reminders'),
+                      value: _reminderEnabled,
+                      onChanged: (bool value) {
+                        setState(() {
+                          _reminderEnabled = value;
+                        });
+                      },
+                      secondary: const Icon(Icons.notifications_active_rounded),
+                    ),
+                    if (_reminderEnabled) ...[
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () async {
+                          final selected = await showTimePicker(
+                            context: context,
+                            initialTime:
+                                _reminderTime ??
+                                const TimeOfDay(hour: 20, minute: 0),
+                          );
+                          if (selected != null) {
+                            setState(() {
+                              _reminderTime = selected;
+                            });
+                          }
+                        },
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: <Widget>[
+                              Text(
+                                _reminderTime != null
+                                    ? 'Reminder time: ${_reminderTime!.format(context)}'
+                                    : 'Choose reminder time',
+                                style: theme.textTheme.bodyLarge,
+                              ),
+                              const Icon(Icons.access_time),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -175,7 +244,9 @@ class _AddEditHabitScreenState extends State<AddEditHabitScreen> {
                     child: FilledButton.icon(
                       onPressed: _saveHabit,
                       icon: const Icon(Icons.check_rounded),
-                      label: Text(_isEditMode ? 'Save Changes' : 'Create Habit'),
+                      label: Text(
+                        _isEditMode ? 'Save Changes' : 'Create Habit',
+                      ),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(

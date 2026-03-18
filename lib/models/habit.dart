@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 enum HabitFrequency { daily, weekly }
 
 extension HabitFrequencyX on HabitFrequency {
@@ -38,6 +40,8 @@ class Habit {
     required this.frequency,
     required this.createdAt,
     Set<String>? completionDates,
+    this.reminderEnabled = false,
+    this.reminderTime,
   }) : completionDates = completionDates ?? <String>{};
 
   final String id;
@@ -46,6 +50,8 @@ class Habit {
   final HabitFrequency frequency;
   final DateTime createdAt;
   final Set<String> completionDates;
+  final bool reminderEnabled;
+  final String? reminderTime; // HH:mm
 
   Habit copyWith({
     String? id,
@@ -54,6 +60,8 @@ class Habit {
     HabitFrequency? frequency,
     DateTime? createdAt,
     Set<String>? completionDates,
+    bool? reminderEnabled,
+    String? reminderTime,
   }) {
     return Habit(
       id: id ?? this.id,
@@ -61,7 +69,10 @@ class Habit {
       description: description ?? this.description,
       frequency: frequency ?? this.frequency,
       createdAt: createdAt ?? this.createdAt,
-      completionDates: completionDates ?? Set<String>.from(this.completionDates),
+      completionDates:
+          completionDates ?? Set<String>.from(this.completionDates),
+      reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+      reminderTime: reminderTime ?? this.reminderTime,
     );
   }
 
@@ -73,6 +84,8 @@ class Habit {
       'frequency': frequency.value,
       'createdAt': createdAt.toIso8601String(),
       'completionDates': completionDates.toList(),
+      'reminderEnabled': reminderEnabled,
+      'reminderTime': reminderTime,
     };
   }
 
@@ -89,8 +102,11 @@ class Habit {
         (json['frequency'] as String?) ?? 'daily',
       ),
       createdAt:
-          DateTime.tryParse((json['createdAt'] as String?) ?? '') ?? DateTime.now(),
+          DateTime.tryParse((json['createdAt'] as String?) ?? '') ??
+          DateTime.now(),
       completionDates: rawDates,
+      reminderEnabled: (json['reminderEnabled'] as bool?) ?? false,
+      reminderTime: (json['reminderTime'] as String?),
     );
   }
 
@@ -185,6 +201,60 @@ class Habit {
       cursor = cursor.subtract(const Duration(days: 7));
     }
     return streak;
+  }
+
+  bool get hasReminder => reminderEnabled && reminderTime != null;
+
+  TimeOfDay? get reminderTimeOfDay {
+    if (reminderTime == null) return null;
+    final parts = reminderTime!.split(':');
+    if (parts.length != 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  int get longestStreak {
+    if (completionDates.isEmpty) {
+      return 0;
+    }
+
+    final normalizedDays = completionDates
+        .map((String key) => DateTime.tryParse(key))
+        .whereType<DateTime>()
+        .map(_normalizeDate)
+        .toSet();
+
+    if (normalizedDays.isEmpty) {
+      return 0;
+    }
+
+    final List<DateTime> sorted = normalizedDays.toList()
+      ..sort((a, b) => a.compareTo(b));
+
+    var longest = 1;
+    var current = 1;
+    for (var i = 1; i < sorted.length; i++) {
+      final previous = sorted[i - 1];
+      final currentDate = sorted[i];
+
+      final expected = frequency == HabitFrequency.daily
+          ? previous.add(const Duration(days: 1))
+          : _startOfWeek(previous.add(const Duration(days: 7)));
+
+      if (frequency == HabitFrequency.daily
+          ? currentDate == expected
+          : _startOfWeek(currentDate) == expected) {
+        current++;
+      } else {
+        longest = longest > current ? longest : current;
+        current = 1;
+      }
+    }
+
+    longest = longest > current ? longest : current;
+    return longest;
   }
 }
 
