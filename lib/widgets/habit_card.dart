@@ -20,23 +20,32 @@ class HabitCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final surfaceColor = isCompletedToday
+        ? (isDark ? const Color(0xFF1E2A24) : const Color(0xFFF4F8F5))
+        : theme.colorScheme.surface;
+    final titleColor = isCompletedToday
+        ? (isDark ? const Color(0xFFAABAB2) : const Color(0xFF73827D))
+        : theme.textTheme.titleMedium?.color;
+
     final titleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
           decoration: isCompletedToday ? TextDecoration.lineThrough : null,
-          color: isCompletedToday
-              ? const Color(0xFF73827D)
-              : const Color(0xFF1E2925),
+          color: titleColor,
         );
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: isCompletedToday ? const Color(0xFFF4F8F5) : Colors.white,
+        color: surfaceColor,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFDCE5DF)),
-        boxShadow: const <BoxShadow>[
+        border: Border.all(color: theme.dividerColor),
+        boxShadow: <BoxShadow>[
           BoxShadow(
-            color: Color(0x120A2019),
-            blurRadius: 14,
-            offset: Offset(0, 8),
+            color: isDark
+                ? const Color(0x33000000)
+                : const Color(0x120A2019),
+            blurRadius: isDark ? 10 : 14,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -116,6 +125,8 @@ class _HabitToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -126,7 +137,11 @@ class _HabitToggle extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isDone ? const Color(0xFF1E5B4F) : const Color(0xFFB5C4BC),
+            color: isDone
+                ? const Color(0xFF1E5B4F)
+                : (isDark
+                    ? const Color(0xFF6C8178)
+                    : const Color(0xFFB5C4BC)),
             width: 1.6,
           ),
           color: isDone ? const Color(0xFF1E5B4F) : Colors.transparent,
@@ -147,21 +162,26 @@ class _MetaPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final foregroundColor = isDark
+        ? const Color(0xFFD5E3DB)
+        : const Color(0xFF36524A);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFE9F0EB),
+        color: isDark ? const Color(0xFF223029) : const Color(0xFFE9F0EB),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(icon, size: 14, color: const Color(0xFF36524A)),
+          Icon(icon, size: 14, color: foregroundColor),
           const SizedBox(width: 6),
           Text(
             label,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: const Color(0xFF36524A),
+                  color: foregroundColor,
                   fontWeight: FontWeight.w600,
                 ),
           ),
