@@ -6,6 +6,7 @@ import '../models/habit.dart';
 
 class HabitStorageService {
   static const String _habitsKey = 'habit_tracker_habits_v1';
+  static const String _lastOpenedKey = 'habit_tracker_last_opened_v1';
 
   Future<List<Habit>> loadHabits() async {
     final prefs = await SharedPreferences.getInstance();
@@ -27,5 +28,19 @@ class HabitStorageService {
       habits.map((Habit habit) => habit.toJson()).toList(),
     );
     await prefs.setString(_habitsKey, encoded);
+  }
+
+  Future<DateTime?> loadLastOpened() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_lastOpenedKey);
+    if (raw == null || raw.isEmpty) {
+      return null;
+    }
+    return DateTime.tryParse(raw);
+  }
+
+  Future<void> saveLastOpened(DateTime timestamp) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastOpenedKey, timestamp.toIso8601String());
   }
 }
