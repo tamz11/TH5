@@ -12,9 +12,11 @@ class HabitProvider extends ChangeNotifier {
 
   final List<Habit> _habits = <Habit>[];
   bool _isLoading = false;
+  DateTime? _lastOpened;
 
   List<Habit> get habits => List<Habit>.unmodifiable(_habits);
   bool get isLoading => _isLoading;
+  DateTime? get lastOpened => _lastOpened;
 
   int _notificationIdForHabit(Habit habit) => habit.id.hashCode & 0x7FFFFFFF;
 
@@ -77,6 +79,7 @@ class HabitProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
+    _lastOpened = await _storageService.loadLastOpened();
     final loaded = await _storageService.loadHabits();
     _habits
       ..clear()
@@ -137,6 +140,20 @@ class HabitProvider extends ChangeNotifier {
       DateTime.now(),
       isCompleted,
     );
+    await _persistAndNotify();
+  }
+
+  Future<void> toggleHabitForDate(
+    String id,
+    DateTime date,
+    bool isCompleted,
+  ) async {
+    final index = _habits.indexWhere((Habit habit) => habit.id == id);
+    if (index == -1) {
+      return;
+    }
+
+    _habits[index] = _habits[index].toggleCompletion(date, isCompleted);
     await _persistAndNotify();
   }
 

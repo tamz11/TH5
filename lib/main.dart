@@ -12,6 +12,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService.instance.init();
 
+  await HabitStorageService().saveLastOpened(DateTime.now());
+
   final themeProvider = ThemeProvider();
   await themeProvider.loadThemeMode();
 
@@ -60,12 +62,8 @@ class HabitTrackerApp extends StatelessWidget {
 
     return ThemeData(
       useMaterial3: true,
-      iconTheme: IconThemeData(
-        color: isDark ? textColor : Colors.black,
-      ),
-      primaryIconTheme: IconThemeData(
-        color: isDark ? textColor : Colors.black,
-      ),
+      iconTheme: IconThemeData(color: isDark ? textColor : Colors.black),
+      primaryIconTheme: IconThemeData(color: isDark ? textColor : Colors.black),
       scaffoldBackgroundColor: backgroundColor,
       colorScheme: ColorScheme.fromSeed(
         seedColor: _primaryColor,

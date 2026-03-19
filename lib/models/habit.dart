@@ -140,6 +140,13 @@ class Habit {
 
     final weekStart = _startOfWeek(date);
     if (isCompleted) {
+      updatedDates.removeWhere((String key) {
+        final parsed = DateTime.tryParse(key);
+        if (parsed == null) {
+          return false;
+        }
+        return _startOfWeek(parsed) == weekStart;
+      });
       updatedDates.add(_dateKey(date));
     } else {
       updatedDates.removeWhere((String key) {
