@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/habit.dart';
 import '../services/habit_provider.dart';
+import '../services/theme_provider.dart';
 import '../widgets/habit_card.dart';
 import 'add_edit_habit_screen.dart';
 import 'statistics_screen.dart';
@@ -93,6 +94,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     final provider = context.watch<HabitProvider>();
     final today = DateTime.now();
     final total = provider.habits.length;
@@ -103,8 +107,32 @@ class _HomeScreenState extends State<HomeScreen> {
     final visibleHabits = _filteredHabits(provider.habits, today);
     final isSearchingOrFiltering = _hasActiveConditions;
 
+    final themeProvider = context.watch<ThemeProvider>();
+
     return Scaffold(
-      appBar: AppBar(toolbarHeight: 0),
+      appBar: AppBar(
+        title: const Text('Habit Tracker'),
+        actions: <Widget>[
+          IconButton(
+            icon: Icon(
+              themeProvider.isDarkMode ? Icons.wb_sunny : Icons.nights_stay,
+            ),
+            onPressed: () => themeProvider.toggleTheme(),
+            tooltip: 'Toggle theme',
+          ),
+          IconButton(
+            icon: const Icon(Icons.query_stats_rounded),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const StatisticsScreen(),
+                ),
+              );
+            },
+            tooltip: 'Statistics',
+          ),
+        ],
+      ),
       body: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -233,9 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _goToAddOrEdit(BuildContext context, {Habit? habit}) {
     return Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AddEditHabitScreen(habit: habit),
-      ),
+      MaterialPageRoute<void>(builder: (_) => AddEditHabitScreen(habit: habit)),
     );
   }
 
@@ -418,17 +444,23 @@ class _HomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     final percentage = (completion * 100).round();
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: <Color>[Color(0xFFEEF4EF), Color(0xFFE3ECE6)],
+          colors: isDark
+              ? <Color>[const Color(0xFF1B2823), const Color(0xFF21352E)]
+              : <Color>[const Color(0xFFEEF4EF), const Color(0xFFE3ECE6)],
         ),
+        border: Border.all(color: theme.dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -470,8 +502,9 @@ class _HomeHeader extends StatelessWidget {
               Text(
                 '$percentage%',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: const Color(0xFF1E5B4F),
-                    ),
+                  color: const Color(0xFF1E5B4F),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
@@ -481,7 +514,9 @@ class _HomeHeader extends StatelessWidget {
             child: LinearProgressIndicator(
               minHeight: 10,
               value: completion,
-              backgroundColor: const Color(0xFFD2DFD6),
+              backgroundColor: isDark
+                  ? const Color(0xFF2C3A34)
+                  : const Color(0xFFD2DFD6),
             ),
           ),
         ],
