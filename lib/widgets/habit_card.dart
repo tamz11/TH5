@@ -50,15 +50,15 @@ class HabitCard extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
+        padding: const EdgeInsets.fromLTRB(10, 12, 8, 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            _HabitToggle(
+            _HabitCheckIn(
               isDone: isCompletedToday,
-              onTap: () => onChanged(!isCompletedToday),
+              onChanged: onChanged,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,6 +81,12 @@ class HabitCard extends StatelessWidget {
                       _MetaPill(
                         icon: Icons.repeat_rounded,
                         label: habit.frequency.label,
+                      ),
+                      _MetaPill(
+                        icon: isCompletedToday
+                            ? Icons.task_alt_rounded
+                            : Icons.pending_actions_rounded,
+                        label: isCompletedToday ? 'Checked in' : 'Not checked in',
                       ),
                       _MetaPill(
                         icon: Icons.local_fire_department_rounded,
@@ -117,38 +123,25 @@ class HabitCard extends StatelessWidget {
   }
 }
 
-class _HabitToggle extends StatelessWidget {
-  const _HabitToggle({required this.isDone, required this.onTap});
+class _HabitCheckIn extends StatelessWidget {
+  const _HabitCheckIn({required this.isDone, required this.onChanged});
 
   final bool isDone;
-  final VoidCallback onTap;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: 28,
-        height: 28,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isDone
-                ? const Color(0xFF1E5B4F)
-                : (isDark
-                    ? const Color(0xFF6C8178)
-                    : const Color(0xFFB5C4BC)),
-            width: 1.6,
-          ),
-          color: isDone ? const Color(0xFF1E5B4F) : Colors.transparent,
+    return Tooltip(
+      message: isDone ? 'Mark as not done' : 'Check in today',
+      child: Transform.translate(
+        offset: const Offset(0, -2),
+        child: Checkbox(
+          value: isDone,
+          onChanged: (bool? value) {
+            onChanged(value ?? false);
+          },
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         ),
-        child: isDone
-            ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
-            : null,
       ),
     );
   }

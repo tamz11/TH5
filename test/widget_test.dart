@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,8 +11,10 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
 
     await tester.pumpWidget(const HabitTrackerApp());
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
 
-    expect(find.text('Habit Tracker'), findsOneWidget);
+    expect(find.text('Today\'s Focus'), findsOneWidget);
+    expect(find.text('Search habits...'), findsOneWidget);
+    expect(find.byIcon(Icons.add), findsOneWidget);
   });
 }
