@@ -7,8 +7,25 @@ import '../widgets/habit_card.dart';
 import 'add_edit_habit_screen.dart';
 import 'statistics_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+enum _HabitFilter { all, completed, pending, daily, weekly }
+
+class _HomeScreenState extends State<HomeScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  _HabitFilter _activeFilter = _HabitFilter.all;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   String _greetingByHour(int hour) {
     if (hour < 12) {
@@ -20,6 +37,60 @@ class HomeScreen extends StatelessWidget {
     return 'Good evening';
   }
 
+  List<Habit> _filteredHabits(List<Habit> habits, DateTime today) {
+    final normalizedQuery = _searchQuery.trim().toLowerCase();
+
+    return habits.where((Habit habit) {
+      final matchesSearch = normalizedQuery.isEmpty ||
+          habit.name.toLowerCase().contains(normalizedQuery) ||
+          habit.description.toLowerCase().contains(normalizedQuery);
+
+      if (!matchesSearch) {
+        return false;
+      }
+
+      switch (_activeFilter) {
+        case _HabitFilter.all:
+          return true;
+        case _HabitFilter.completed:
+          return habit.isCompletedOn(today);
+        case _HabitFilter.pending:
+          return !habit.isCompletedOn(today);
+        case _HabitFilter.daily:
+          return habit.frequency == HabitFrequency.daily;
+        case _HabitFilter.weekly:
+          return habit.frequency == HabitFrequency.weekly;
+      }
+    }).toList(growable: false);
+  }
+
+  bool get _hasActiveConditions {
+    return _searchQuery.trim().isNotEmpty || _activeFilter != _HabitFilter.all;
+  }
+
+  String _filterLabel(_HabitFilter filter) {
+    switch (filter) {
+      case _HabitFilter.all:
+        return 'All';
+      case _HabitFilter.completed:
+        return 'Completed';
+      case _HabitFilter.pending:
+        return 'Pending';
+      case _HabitFilter.daily:
+        return 'Daily';
+      case _HabitFilter.weekly:
+        return 'Weekly';
+    }
+  }
+
+  void _clearConditions() {
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _activeFilter = _HabitFilter.all;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<HabitProvider>();
@@ -29,98 +100,129 @@ class HomeScreen extends StatelessWidget {
         .where((Habit habit) => habit.isCompletedOn(today))
         .length;
     final completion = total == 0 ? 0.0 : completed / total;
+    final visibleHabits = _filteredHabits(provider.habits, today);
+    final isSearchingOrFiltering = _hasActiveConditions;
 
     return Scaffold(
       appBar: AppBar(toolbarHeight: 0),
       body: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : CustomScrollView(
-              slivers: <Widget>[
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
-                  sliver: SliverToBoxAdapter(
-                    child: _HomeHeader(
-                      greeting: _greetingByHour(today.hour),
-                      total: total,
-                      completed: completed,
-                      completion: completion,
-                      onStatisticsTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const StatisticsScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+          : RefreshIndicator(
+              onRefresh: provider.loadHabits,
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
                 ),
-                if (provider.habits.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 30),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Container(
-                              width: 72,
-                              height: 72,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE7EEE8),
-                                borderRadius: BorderRadius.circular(22),
-                              ),
-                              child: const Icon(
-                                Icons.auto_awesome_motion,
-                                size: 36,
-                                color: Color(0xFF1E5B4F),
-                              ),
+                slivers: <Widget>[
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+                    sliver: SliverToBoxAdapter(
+                      child: _HomeHeader(
+                        greeting: _greetingByHour(today.hour),
+                        total: total,
+                        completed: completed,
+                        completion: completion,
+                        onStatisticsTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const StatisticsScreen(),
                             ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No habits yet',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Tap + to build your first routine and track your streak every day.',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
                     ),
-                  )
-                else
+                  ),
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 6, 20, 120),
-                    sliver: SliverList.builder(
-                      itemCount: provider.habits.length,
-                      itemBuilder: (BuildContext context, int index) {
-                        final habit = provider.habits[index];
-                        final isCompletedToday = habit.isCompletedOn(today);
-
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: HabitCard(
-                            habit: habit,
-                            isCompletedToday: isCompletedToday,
-                            onChanged: (bool value) {
-                              provider.toggleHabitForToday(habit.id, value);
-                            },
-                            onEdit: () {
-                              _goToAddOrEdit(context, habit: habit);
-                            },
-                            onDelete: () {
-                              _confirmDelete(context, habit, provider);
-                            },
-                          ),
-                        );
-                      },
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                    sliver: SliverToBoxAdapter(
+                      child: _HomeControls(
+                        controller: _searchController,
+                        activeFilter: _activeFilter,
+                        onSearchChanged: (String value) {
+                          setState(() {
+                            _searchQuery = value;
+                          });
+                        },
+                        onFilterChanged: (_HabitFilter filter) {
+                          setState(() {
+                            _activeFilter = filter;
+                          });
+                        },
+                        onClear: isSearchingOrFiltering ? _clearConditions : null,
+                        filterLabelBuilder: _filterLabel,
+                      ),
                     ),
                   ),
-              ],
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    sliver: SliverToBoxAdapter(
+                      child: Row(
+                        children: <Widget>[
+                          Text(
+                            isSearchingOrFiltering
+                                ? 'Showing ${visibleHabits.length} habits'
+                                : 'Today\'s habits',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const Spacer(),
+                          Text(
+                            '$completed/$total done',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (provider.habits.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _EmptyState(
+                        title: 'No habits yet',
+                        subtitle:
+                            'Tap + to build your first routine and track your streak every day.',
+                      ),
+                    )
+                  else if (visibleHabits.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _EmptyState(
+                        title: 'No matching habits',
+                        subtitle:
+                            'Try another keyword or clear filters to see more habits.',
+                        actionLabel: 'Clear filters',
+                        onActionTap: _clearConditions,
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 2, 20, 120),
+                      sliver: SliverList.builder(
+                        itemCount: visibleHabits.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          final habit = visibleHabits[index];
+                          final isCompletedToday = habit.isCompletedOn(today);
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: HabitCard(
+                              habit: habit,
+                              isCompletedToday: isCompletedToday,
+                              onChanged: (bool value) {
+                                provider.toggleHabitForToday(habit.id, value);
+                              },
+                              onEdit: () {
+                                _goToAddOrEdit(context, habit: habit);
+                              },
+                              onDelete: () {
+                                _confirmDelete(context, habit, provider);
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _goToAddOrEdit(context),
@@ -165,6 +267,137 @@ class HomeScreen extends StatelessWidget {
     if (shouldDelete == true) {
       await provider.deleteHabit(habit.id);
     }
+  }
+}
+
+class _HomeControls extends StatelessWidget {
+  const _HomeControls({
+    required this.controller,
+    required this.activeFilter,
+    required this.onSearchChanged,
+    required this.onFilterChanged,
+    required this.onClear,
+    required this.filterLabelBuilder,
+  });
+
+  final TextEditingController controller;
+  final _HabitFilter activeFilter;
+  final ValueChanged<String> onSearchChanged;
+  final ValueChanged<_HabitFilter> onFilterChanged;
+  final VoidCallback? onClear;
+  final String Function(_HabitFilter filter) filterLabelBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        TextField(
+          controller: controller,
+          onChanged: onSearchChanged,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            hintText: 'Search habits...',
+            prefixIcon: const Icon(Icons.search_rounded),
+            suffixIcon: controller.text.isEmpty
+                ? null
+                : IconButton(
+                    onPressed: () {
+                      controller.clear();
+                      onSearchChanged('');
+                    },
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: 'Clear search',
+                  ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _HabitFilter.values.map((filter) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(filterLabelBuilder(filter)),
+                  selected: activeFilter == filter,
+                  onSelected: (_) => onFilterChanged(filter),
+                ),
+              );
+            }).toList(growable: false),
+          ),
+        ),
+        if (onClear != null)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: onClear,
+              icon: const Icon(Icons.restart_alt_rounded, size: 18),
+              label: const Text('Reset search & filter'),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    required this.title,
+    required this.subtitle,
+    this.actionLabel,
+    this.onActionTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final String? actionLabel;
+  final VoidCallback? onActionTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 30),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE7EEE8),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: const Icon(
+                Icons.auto_awesome_motion,
+                size: 36,
+                color: Color(0xFF1E5B4F),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            if (actionLabel != null && onActionTap != null) ...<Widget>[
+              const SizedBox(height: 12),
+              FilledButton.tonal(
+                onPressed: onActionTap,
+                child: Text(actionLabel!),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
