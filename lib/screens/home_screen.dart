@@ -41,28 +41,31 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Habit> _filteredHabits(List<Habit> habits, DateTime today) {
     final normalizedQuery = _searchQuery.trim().toLowerCase();
 
-    return habits.where((Habit habit) {
-      final matchesSearch = normalizedQuery.isEmpty ||
-          habit.name.toLowerCase().contains(normalizedQuery) ||
-          habit.description.toLowerCase().contains(normalizedQuery);
+    return habits
+        .where((Habit habit) {
+          final matchesSearch =
+              normalizedQuery.isEmpty ||
+              habit.name.toLowerCase().contains(normalizedQuery) ||
+              habit.description.toLowerCase().contains(normalizedQuery);
 
-      if (!matchesSearch) {
-        return false;
-      }
+          if (!matchesSearch) {
+            return false;
+          }
 
-      switch (_activeFilter) {
-        case _HabitFilter.all:
-          return true;
-        case _HabitFilter.completed:
-          return habit.isCompletedOn(today);
-        case _HabitFilter.pending:
-          return !habit.isCompletedOn(today);
-        case _HabitFilter.daily:
-          return habit.frequency == HabitFrequency.daily;
-        case _HabitFilter.weekly:
-          return habit.frequency == HabitFrequency.weekly;
-      }
-    }).toList(growable: false);
+          switch (_activeFilter) {
+            case _HabitFilter.all:
+              return true;
+            case _HabitFilter.completed:
+              return habit.isCompletedOn(today);
+            case _HabitFilter.pending:
+              return !habit.isCompletedOn(today);
+            case _HabitFilter.daily:
+              return habit.frequency == HabitFrequency.daily;
+            case _HabitFilter.weekly:
+              return habit.frequency == HabitFrequency.weekly;
+          }
+        })
+        .toList(growable: false);
   }
 
   bool get _hasActiveConditions {
@@ -123,11 +126,9 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.query_stats_rounded),
             onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const StatisticsScreen(),
-                ),
-              );
+              Navigator.of(
+                context,
+              ).push(_slideRightRoute<void>(const StatisticsScreen()));
             },
             tooltip: 'Statistics',
           ),
@@ -152,9 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         completion: completion,
                         onStatisticsTap: () {
                           Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const StatisticsScreen(),
-                            ),
+                            _slideRightRoute<void>(const StatisticsScreen()),
                           );
                         },
                       ),
@@ -176,7 +175,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             _activeFilter = filter;
                           });
                         },
-                        onClear: isSearchingOrFiltering ? _clearConditions : null,
+                        onClear: isSearchingOrFiltering
+                            ? _clearConditions
+                            : null,
                         filterLabelBuilder: _filterLabel,
                       ),
                     ),
@@ -260,8 +261,69 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _goToAddOrEdit(BuildContext context, {Habit? habit}) {
-    return Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => AddEditHabitScreen(habit: habit)),
+    return Navigator.of(
+      context,
+    ).push(_slideUpRoute<void>(AddEditHabitScreen(habit: habit)));
+  }
+
+  /// Slides the new screen up from the bottom (modal feel).
+  static PageRouteBuilder<T> _slideUpRoute<T>(Widget page) {
+    return PageRouteBuilder<T>(
+      pageBuilder: (_, Animation<double> animation, __) => page,
+      transitionDuration: const Duration(milliseconds: 320),
+      reverseTransitionDuration: const Duration(milliseconds: 260),
+      transitionsBuilder:
+          (
+            _,
+            Animation<double> animation,
+            Animation<double> secondaryAnimation,
+            Widget child,
+          ) {
+            const begin = Offset(0.0, 1.0);
+            const end = Offset.zero;
+            final tween = Tween<Offset>(
+              begin: begin,
+              end: end,
+            ).chain(CurveTween(curve: Curves.easeOutCubic));
+            final fadeTween = Tween<double>(
+              begin: 0.0,
+              end: 1.0,
+            ).chain(CurveTween(curve: Curves.easeIn));
+            return SlideTransition(
+              position: animation.drive(tween),
+              child: FadeTransition(
+                opacity: animation.drive(fadeTween),
+                child: child,
+              ),
+            );
+          },
+    );
+  }
+
+  /// Slides the new screen in from the right (standard push feel).
+  static PageRouteBuilder<T> _slideRightRoute<T>(Widget page) {
+    return PageRouteBuilder<T>(
+      pageBuilder: (_, Animation<double> animation, __) => page,
+      transitionDuration: const Duration(milliseconds: 280),
+      reverseTransitionDuration: const Duration(milliseconds: 220),
+      transitionsBuilder:
+          (
+            _,
+            Animation<double> animation,
+            Animation<double> secondaryAnimation,
+            Widget child,
+          ) {
+            const begin = Offset(1.0, 0.0);
+            const end = Offset.zero;
+            final tween = Tween<Offset>(
+              begin: begin,
+              end: end,
+            ).chain(CurveTween(curve: Curves.easeOutCubic));
+            return SlideTransition(
+              position: animation.drive(tween),
+              child: child,
+            );
+          },
     );
   }
 
@@ -341,16 +403,18 @@ class _HomeControls extends StatelessWidget {
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children: _HabitFilter.values.map((filter) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  label: Text(filterLabelBuilder(filter)),
-                  selected: activeFilter == filter,
-                  onSelected: (_) => onFilterChanged(filter),
-                ),
-              );
-            }).toList(growable: false),
+            children: _HabitFilter.values
+                .map((filter) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(filterLabelBuilder(filter)),
+                      selected: activeFilter == filter,
+                      onSelected: (_) => onFilterChanged(filter),
+                    ),
+                  );
+                })
+                .toList(growable: false),
           ),
         ),
         if (onClear != null)
